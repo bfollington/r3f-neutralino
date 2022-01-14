@@ -1,8 +1,8 @@
-import { useCamera } from "@react-three/drei";
-import { Camera, useThree } from "@react-three/fiber";
-import { useButtonHeld, keycode } from "use-control/lib";
-import KEYS from "use-control/lib/keys";
+import { useCylinder } from "@react-three/cannon";
+import { useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
+import { keycode, useButtonHeld } from "use-control/lib";
+import KEYS from "use-control/lib/keys";
 
 const inputMap = {
   buttons: {
@@ -15,18 +15,27 @@ const inputMap = {
 };
 
 const look = new Vector3();
+const pos = new Vector3();
 const UP = new Vector3(0, 1, 0);
 
 const WasdControls = () => {
   const { camera, gl } = useThree();
   const speed = 0.01;
 
+  const [ref, api] = useCylinder(() => ({
+    type: "Kinematic",
+    args: [1, 1, 2],
+  }));
+
   useButtonHeld(inputMap, "left", 1, () => {
     camera.getWorldDirection(look);
     look.y = 0;
     look.applyAxisAngle(UP, Math.PI / 2);
 
-    camera.position.add(look.multiplyScalar(speed));
+    api.position.copy(pos);
+    pos.add(look.multiplyScalar(speed));
+    api.position.set(pos.x, pos.y, pos.z);
+    camera.position.set(pos.x, pos.y, pos.z);
   });
 
   useButtonHeld(inputMap, "right", 1, () => {
@@ -34,24 +43,38 @@ const WasdControls = () => {
     look.y = 0;
     look.applyAxisAngle(UP, -Math.PI / 2);
 
-    camera.position.add(look.multiplyScalar(speed));
+    api.position.copy(pos);
+    pos.add(look.multiplyScalar(speed));
+    api.position.set(pos.x, pos.y, pos.z);
+    camera.position.set(pos.x, pos.y, pos.z);
   });
 
   useButtonHeld(inputMap, "forward", 1, () => {
     camera.getWorldDirection(look);
     look.y = 0;
 
-    camera.position.add(look.multiplyScalar(speed));
+    api.position.copy(pos);
+    pos.add(look.multiplyScalar(speed));
+    api.position.set(pos.x, pos.y, pos.z);
+    camera.position.set(pos.x, pos.y, pos.z);
   });
 
   useButtonHeld(inputMap, "back", 1, () => {
     camera.getWorldDirection(look);
     look.y = 0;
 
-    camera.position.add(look.multiplyScalar(-speed));
+    api.position.copy(pos);
+    pos.add(look.multiplyScalar(-speed));
+    api.position.set(pos.x, pos.y, pos.z);
+    camera.position.set(pos.x, pos.y, pos.z);
   });
 
-  return null;
+  return (
+    <mesh receiveShadow castShadow ref={ref}>
+      <boxGeometry />
+      <meshLambertMaterial color="red" />
+    </mesh>
+  );
 };
 
 export default WasdControls;

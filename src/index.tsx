@@ -13,6 +13,7 @@ import {
   Stats,
 } from "@react-three/drei";
 import WasdControls from "./WasdControls";
+import { Physics, useBox, usePlane } from "@react-three/cannon";
 
 function Box(props: any) {
   // This reference gives us direct access to the THREE.Mesh object
@@ -34,6 +35,46 @@ function Box(props: any) {
   );
 }
 
+function Cube(props: any) {
+  const [ref] = useBox(() => ({
+    mass: 1,
+    position: [0, 5, 0],
+    rotation: [0.4, 0.2, 0.5],
+    ...props,
+  }));
+  return (
+    <mesh receiveShadow castShadow ref={ref}>
+      <boxGeometry />
+      <meshLambertMaterial color="hotpink" />
+    </mesh>
+  );
+}
+
+function Floor(props: any) {
+  const [ref] = usePlane(() => ({ rotation: [-Math.PI / 2, 0, 0], ...props }));
+  return (
+    <mesh ref={ref} receiveShadow>
+      <planeGeometry args={[1000, 1000]} />
+      <shadowMaterial color="#171717" transparent opacity={0.4} />
+    </mesh>
+  );
+}
+
+function Wall(props: any) {
+  const [ref] = usePlane(() => ({
+    type: "Static",
+    rotation: [0, 0, 0],
+    ...props,
+  }));
+  return (
+    <mesh ref={ref} receiveShadow>
+      <planeGeometry args={[10, 10]} />
+      <meshStandardMaterial color="blue" />
+      {/* <shadowMaterial color="#171717" transparent opacity={0.4} /> */}
+    </mesh>
+  );
+}
+
 ReactDOM.render(
   <React.StrictMode>
     <Canvas>
@@ -41,10 +82,16 @@ ReactDOM.render(
       <Suspense fallback={null}>
         <ambientLight />
         <pointLight position={[10, 10, 10]} />
-        <Box position={[-1.2, 0, 0]} />
-        <Box position={[1.2, 0, 0]} />
+        {/* <Box position={[-1.2, 0, 0]} />
+        <Box position={[1.2, 0, 0]} /> */}
+        <Physics>
+          <Floor />
+          <Wall position={[0, 0, -10]} />
+          <Cube position={[0, 8, 0]} />
+          <Cube />
+          <WasdControls />
+        </Physics>
       </Suspense>
-      <WasdControls />
       <PointerLockControls
         addEventListener={undefined}
         hasEventListener={undefined}
