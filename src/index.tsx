@@ -6,7 +6,13 @@ import ReactDOM from "react-dom";
 import React, { Suspense, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import Suzanne from "./Suzanne";
-import { OrbitControls } from "@react-three/drei";
+import {
+  OrbitControls,
+  PerspectiveCamera,
+  PointerLockControls,
+  Stats,
+} from "@react-three/drei";
+import WasdControls from "./WasdControls";
 
 function Box(props: any) {
   // This reference gives us direct access to the THREE.Mesh object
@@ -31,13 +37,15 @@ function Box(props: any) {
 ReactDOM.render(
   <React.StrictMode>
     <Canvas>
+      <Stats />
       <Suspense fallback={null}>
         <ambientLight />
         <pointLight position={[10, 10, 10]} />
         <Box position={[-1.2, 0, 0]} />
         <Box position={[1.2, 0, 0]} />
       </Suspense>
-      <OrbitControls
+      <WasdControls />
+      <PointerLockControls
         addEventListener={undefined}
         hasEventListener={undefined}
         removeEventListener={undefined}
