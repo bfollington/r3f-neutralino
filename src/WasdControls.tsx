@@ -75,6 +75,11 @@ function tryMove(
 
   const skin = 0.2;
 
+  // NOTE(ben): I think we should cast a spread of rays in the direction of movement from 4-8 equal points around the cylinder
+  // then we can find the closest intersection and base our movement off of that, which should prefer creeping into the wall
+
+  // sharp geo can get in the gaps but cubes / rects shouldn't be a problem
+
   const movement = look.multiplyScalar(speed);
   const m = movement.clone().add(dir.multiplyScalar(skin));
   raycaster.set(position, m);
