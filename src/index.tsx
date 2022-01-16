@@ -1,32 +1,15 @@
-import "./index.css";
-import App from "./App";
-import reportWebVitals from "./reportWebVitals";
-
-import ReactDOM from "react-dom";
-import React, {
-  MutableRefObject,
-  RefObject,
-  Suspense,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Physics, Triplet, useBox } from "@react-three/cannon";
+import { Cylinder, Line, OrbitControls, Stats } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import Suzanne from "./Suzanne";
-import {
-  Cylinder,
-  Line,
-  OrbitControls,
-  PerspectiveCamera,
-  PointerLockControls,
-  Stats,
-} from "@react-three/drei";
-import WasdControls, { useWasd } from "./WasdControls";
-import { Ray } from "./Ray";
-import { Physics, Triplet, useBox, useRaycastAll } from "@react-three/cannon";
-import { Euler, Group, Object3D, Quaternion, Vector3 } from "three";
+import React, { RefObject, Suspense, useRef, useState } from "react";
+import ReactDOM from "react-dom";
+import { Euler, Group, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
+import "./index.css";
+import { obstacles, useObstacle } from "./obstacles";
+import reportWebVitals from "./reportWebVitals";
+import Suzanne from "./Suzanne";
+import { useWasd } from "./WasdControls";
 
 function Box(props: any) {
   // This reference gives us direct access to the THREE.Mesh object
@@ -47,23 +30,6 @@ function Box(props: any) {
     />
   );
 }
-
-const obstacles: Object3D[] = [];
-(window as any).obstacles = obstacles;
-
-const useObstacle = (ref: RefObject<Object3D>) => {
-  useEffect(() => {
-    const o = ref.current;
-    if (o) {
-      obstacles.push(o);
-
-      return () => {
-        const i = obstacles.indexOf(o);
-        obstacles.splice(i, 1);
-      };
-    }
-  });
-};
 
 const Obstacle = ({ position }: { position: Triplet }) => {
   const [ref] = useBox(() => ({ position }));

@@ -2,8 +2,9 @@ import { useCamera } from "@react-three/drei";
 import { Camera, useThree } from "@react-three/fiber";
 import { useButtonHeld, keycode } from "use-control/lib";
 import KEYS from "use-control/lib/keys";
-import { Vector3 } from "three";
+import { Raycaster, Vector3 } from "three";
 import { MutableRefObject, RefObject } from "react";
+import { obstacles } from "./obstacles";
 
 const inputMap = {
   buttons: {
@@ -57,41 +58,48 @@ const WasdControls = () => {
 
 export default WasdControls;
 
+function tryMove(
+  position: Vector3,
+  camera: Camera,
+  raycaster: Raycaster,
+  speed: number,
+  angle: number
+) {
+  camera.getWorldDirection(look);
+  look.y = 0;
+  look.normalize();
+  look.applyAxisAngle(UP, angle);
+
+  const movement = look.multiplyScalar(speed);
+  raycaster.set(position, movement);
+  raycaster.far = 1;
+
+  const intersections = raycaster.intersectObjects(obstacles);
+  const isIntersecting = intersections.length > 0;
+
+  if (!isIntersecting) {
+    position.add(look.multiplyScalar(speed));
+  }
+}
+
 export const useWasd = (pos: Vector3, hits: MutableRefObject<boolean[]>) => {
-  const { camera, gl } = useThree();
-  const speed = 0.01;
+  const { camera, gl, raycaster } = useThree();
+  const speed = 0.1;
 
   useButtonHeld(inputMap, "left", 1, () => {
-    camera.getWorldDirection(look);
-    look.y = 0;
-    look.normalize();
-    look.applyAxisAngle(UP, Math.PI / 2);
-
-    pos.add(look.multiplyScalar(speed));
+    tryMove(pos, camera, raycaster, speed, Math.PI / 2);
   });
 
   useButtonHeld(inputMap, "right", 1, () => {
-    camera.getWorldDirection(look);
-    look.y = 0;
-    look.applyAxisAngle(UP, -Math.PI / 2);
-
-    pos.add(look.multiplyScalar(speed));
+    tryMove(pos, camera, raycaster, speed, -Math.PI / 2);
   });
 
   useButtonHeld(inputMap, "forward", 1, () => {
-    camera.getWorldDirection(look);
-    look.y = 0;
-
-    if (hits.current && !hits.current[0]) {
-      pos.add(look.multiplyScalar(speed));
-    }
+    tryMove(pos, camera, raycaster, speed, 0);
   });
 
   useButtonHeld(inputMap, "back", 1, () => {
-    camera.getWorldDirection(look);
-    look.y = 0;
-
-    pos.add(look.multiplyScalar(-speed));
+    tryMove(pos, camera, raycaster, speed, Math.PI);
   });
 
   return null;
