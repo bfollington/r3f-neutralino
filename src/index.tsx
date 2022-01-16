@@ -1,7 +1,13 @@
 import { Physics, Triplet, useBox } from "@react-three/cannon";
 import { Cylinder, Line, OrbitControls, Stats } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import React, { RefObject, Suspense, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  RefObject,
+  Suspense,
+  useRef,
+  useState,
+} from "react";
 import ReactDOM from "react-dom";
 import { Euler, Group, Vector3 } from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
@@ -46,6 +52,21 @@ const vecToTriplet = (v: Vector3): Triplet => [v.x, v.y, v.z];
 const tripletToVec = (t: Triplet) => new Vector3(...t);
 
 const look: Vector3 = new Vector3();
+
+const useDebugRay = (ref: RefObject<Line2>, v: MutableRefObject<Vector3>) => {
+  useFrame(() => {
+    const o = new Vector3(0, 0, 0);
+    const target = v.current.clone().multiplyScalar(200);
+
+    const l = ref.current;
+    if (l && target.length() > 0) {
+      // debugger;
+      l.geometry.setPositions([vecToTriplet(o), vecToTriplet(target)].flat());
+    }
+  });
+
+  return;
+};
 
 const useLocalRay = (
   ref: RefObject<Line2>,
@@ -115,9 +136,11 @@ const playerPosition = new Vector3();
 const Player = ({ position }: { position: Triplet }) => {
   const { camera, raycaster, scene } = useThree();
   const hits = useRef([false, false, false, false, false, false]);
-  useWasd(playerPosition, hits);
+  const result = useWasd(playerPosition, hits);
 
   const ref = useRef<Group>();
+  const moveRayDebug = useRef() as any;
+  useDebugRay(moveRayDebug, result);
 
   useFrame(() => {
     ref.current?.position.copy(playerPosition);
@@ -128,6 +151,15 @@ const Player = ({ position }: { position: Triplet }) => {
       <Cylinder args={[0.2, 0.2, 1]}>
         <meshStandardMaterial color="red" />
       </Cylinder>
+      <Line
+        ref={moveRayDebug}
+        points={[
+          [0, 0, 0],
+          [1, 0, 0],
+        ]}
+        color="green"
+        lineWidth={4}
+      />
       <LocalRay direction={[0, 0, 0]} onUpdate={(v) => (hits.current[0] = v)} />
       <LocalRay
         direction={[0, Math.PI / 4, 0]}

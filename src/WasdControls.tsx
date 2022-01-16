@@ -3,7 +3,7 @@ import { Camera, useThree } from "@react-three/fiber";
 import { useButtonHeld, keycode } from "use-control/lib";
 import KEYS from "use-control/lib/keys";
 import { Raycaster, Vector3 } from "three";
-import { MutableRefObject, RefObject } from "react";
+import { MutableRefObject, RefObject, useRef } from "react";
 import { obstacles } from "./obstacles";
 
 const inputMap = {
@@ -63,51 +63,74 @@ function tryMove(
   camera: Camera,
   raycaster: Raycaster,
   speed: number,
-  angle: number
+  angle: number,
+  result: MutableRefObject<Vector3>
 ) {
   camera.getWorldDirection(look);
   look.y = 0;
   look.normalize();
   look.applyAxisAngle(UP, angle);
 
-  const movement = look.multiplyScalar(speed);
-  raycaster.set(position, movement);
-  raycaster.far = 1;
+  const dir = look.clone();
 
-  const intersections = raycaster.intersectObjects(obstacles);
+  const skin = 0.2;
+
+  const movement = look.multiplyScalar(speed);
+  const m = movement.clone().add(dir.multiplyScalar(skin));
+  raycaster.set(position, m);
+  raycaster.far = m.length();
+
+  const intersections = raycaster
+    .intersectObjects(obstacles)
+    .sort((x) => -x.distance);
   const isIntersecting = intersections.length > 0;
 
+  if (intersections.length > 1) {
+    // debugger;
+  }
+
   if (!isIntersecting) {
-    position.add(look.multiplyScalar(speed));
+    position.add(movement);
+    result.current = movement;
   } else {
     const n = intersections[0].face?.normal;
     if (n) {
+      if (intersections[0].distance < skin) {
+        const diff = skin - intersections[0].distance;
+        const correction = movement.multiplyScalar(-diff);
+        position.add(correction);
+      }
+      // Should test both directions and see which is better
+      // or maybe there's a better answer yet
       const t = n.clone().applyAxisAngle(UP, Math.PI / 2);
       const d = movement.normalize().dot(t);
-      position.add(t.normalize().multiplyScalar(d * speed * 0.1));
+      const v = t.normalize().multiplyScalar(d * speed);
+      result.current = v;
+      position.add(v);
     }
   }
 }
 
 export const useWasd = (pos: Vector3, hits: MutableRefObject<boolean[]>) => {
   const { camera, gl, raycaster } = useThree();
-  const speed = 0.1;
+  const speed = 0.01;
+  const result = useRef(new Vector3());
 
   useButtonHeld(inputMap, "left", 1, () => {
-    tryMove(pos, camera, raycaster, speed, Math.PI / 2);
+    tryMove(pos, camera, raycaster, speed, Math.PI / 2, result);
   });
 
   useButtonHeld(inputMap, "right", 1, () => {
-    tryMove(pos, camera, raycaster, speed, -Math.PI / 2);
+    tryMove(pos, camera, raycaster, speed, -Math.PI / 2, result);
   });
 
   useButtonHeld(inputMap, "forward", 1, () => {
-    tryMove(pos, camera, raycaster, speed, 0);
+    tryMove(pos, camera, raycaster, speed, 0, result);
   });
 
   useButtonHeld(inputMap, "back", 1, () => {
-    tryMove(pos, camera, raycaster, speed, Math.PI);
+    tryMove(pos, camera, raycaster, speed, Math.PI, result);
   });
 
-  return null;
+  return result;
 };
