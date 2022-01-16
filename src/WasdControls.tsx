@@ -3,6 +3,7 @@ import { Camera, useThree } from "@react-three/fiber";
 import { useButtonHeld, keycode } from "use-control/lib";
 import KEYS from "use-control/lib/keys";
 import { Vector3 } from "three";
+import { MutableRefObject, RefObject } from "react";
 
 const inputMap = {
   buttons: {
@@ -55,3 +56,43 @@ const WasdControls = () => {
 };
 
 export default WasdControls;
+
+export const useWasd = (pos: Vector3, hits: MutableRefObject<boolean[]>) => {
+  const { camera, gl } = useThree();
+  const speed = 0.01;
+
+  useButtonHeld(inputMap, "left", 1, () => {
+    camera.getWorldDirection(look);
+    look.y = 0;
+    look.normalize();
+    look.applyAxisAngle(UP, Math.PI / 2);
+
+    pos.add(look.multiplyScalar(speed));
+  });
+
+  useButtonHeld(inputMap, "right", 1, () => {
+    camera.getWorldDirection(look);
+    look.y = 0;
+    look.applyAxisAngle(UP, -Math.PI / 2);
+
+    pos.add(look.multiplyScalar(speed));
+  });
+
+  useButtonHeld(inputMap, "forward", 1, () => {
+    camera.getWorldDirection(look);
+    look.y = 0;
+
+    if (hits.current && !hits.current[0]) {
+      pos.add(look.multiplyScalar(speed));
+    }
+  });
+
+  useButtonHeld(inputMap, "back", 1, () => {
+    camera.getWorldDirection(look);
+    look.y = 0;
+
+    pos.add(look.multiplyScalar(-speed));
+  });
+
+  return null;
+};
