@@ -79,6 +79,13 @@ function tryMove(
 
   if (!isIntersecting) {
     position.add(look.multiplyScalar(speed));
+  } else {
+    const n = intersections[0].face?.normal;
+    if (n) {
+      const t = n.clone().applyAxisAngle(UP, Math.PI / 2);
+      const d = movement.normalize().dot(t);
+      position.add(t.normalize().multiplyScalar(d * speed * 0.1));
+    }
   }
 }
 
