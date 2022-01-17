@@ -19,6 +19,7 @@ export const inputMap = {
     right: [keycode(KEYS.d)],
     forward: [keycode(KEYS.w)],
     back: [keycode(KEYS.s)],
+    jump: [keycode(KEYS.space)],
   },
   axes: {},
 };
