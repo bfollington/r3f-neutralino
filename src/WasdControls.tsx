@@ -88,15 +88,10 @@ function tryMove(
   const skin = 0.2;
   const movement = dir.clone().multiplyScalar(speed);
 
-  // NOTE(ben): I think we should cast a spread of rays in the direction of movement from 4-8 equal points around the cylinder
-  // then we can find the closest intersection and base our movement off of that, which should prefer creeping into the wall
-
-  // sharp geo can get in the gaps but cubes / rects shouldn't be a problem
-
   const results = [];
   const e = new Euler(0, 0, 0, "XYZ");
   console.log("performing checks");
-  for (let a = -Math.PI / 2; a <= Math.PI / 2; a += Math.PI / 4) {
+  for (let a = -Math.PI / 2; a <= Math.PI / 2; a += Math.PI / 8) {
     const m = movement.clone();
     e.set(0, a, 0);
     m.applyEuler(e);
@@ -130,23 +125,22 @@ function tryMove(
         const correction = m.multiplyScalar(-diff);
         position.add(correction);
       }
-      // Should test both directions and see which is better
-      // or maybe there's a better answer yet
+
+      // TODO(ben): perhaps we're doing this wrong. if a is the angle between m and the normal, I could take the m.length() * sin(a) as the length along the tangent instead
+
       const t1 = n.clone().applyAxisAngle(UP, Math.PI / 2);
       const t2 = n.clone().applyAxisAngle(UP, -Math.PI / 2);
       const d1 = m.normalize().dot(t1);
       const d2 = m.normalize().dot(t2);
       const t = d1 > d2 ? t2 : t1;
       const d = d1 > d2 ? d2 : d1;
-      // const t = t1;
-      // const d = d1;
 
       const v = t.normalize().multiplyScalar(d * speed);
       result.current.netMovement = v;
       position.add(v);
     }
-    result.current.hits = results;
   }
+  result.current.hits = results;
 }
 
 export type MovementResult = {
