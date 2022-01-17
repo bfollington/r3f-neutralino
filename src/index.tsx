@@ -5,6 +5,7 @@ import React, {
   MutableRefObject,
   RefObject,
   Suspense,
+  useEffect,
   useRef,
   useState,
 } from "react";
@@ -15,7 +16,7 @@ import "./index.css";
 import { obstacles, useObstacle } from "./obstacles";
 import reportWebVitals from "./reportWebVitals";
 import Suzanne from "./Suzanne";
-import { useWasd } from "./WasdControls";
+import { MovementResult, RaycastResult, useWasd } from "./WasdControls";
 
 function Box(props: any) {
   // This reference gives us direct access to the THREE.Mesh object
@@ -53,10 +54,13 @@ const tripletToVec = (t: Triplet) => new Vector3(...t);
 
 const look: Vector3 = new Vector3();
 
-const useDebugRay = (ref: RefObject<Line2>, v: MutableRefObject<Vector3>) => {
+const useDebugRay = (
+  ref: RefObject<Line2>,
+  v: MutableRefObject<{ netMovement: Vector3; hits: RaycastResult[] }>
+) => {
   useFrame(() => {
     const o = new Vector3(0, 0, 0);
-    const target = v.current.clone().multiplyScalar(200);
+    const target = v.current.netMovement.clone().multiplyScalar(200);
 
     const l = ref.current;
     if (l && target.length() > 0) {
@@ -133,14 +137,58 @@ const LocalRay = ({
 
 const playerPosition = new Vector3();
 
+const PlayerDebug = ({
+  result,
+}: {
+  result: MutableRefObject<MovementResult>;
+}) => {
+  const rays = [...Array(8)].map((_, i) => i);
+  const refs = useRef<any[]>(rays.map((_) => null));
+
+  useFrame(() => {
+    const o = new Vector3(0, 0, 0);
+
+    for (let i = 0; i < result.current.hits.length; i++) {
+      const v = result.current.hits[i];
+      const target = v.movement.clone().multiplyScalar(2);
+
+      const l = refs.current[i];
+      if (l && target.length() > 0) {
+        // debugger;
+        l.geometry.setPositions([vecToTriplet(o), vecToTriplet(target)].flat());
+      }
+    }
+  });
+
+  return (
+    <>
+      {rays.map((r) => (
+        <Line
+          key={r}
+          ref={(el) => (refs.current[r] = el)}
+          points={[
+            [0, 0, 0],
+            [0, 0, 0],
+          ]}
+          color="purple"
+          lineWidth={2}
+        />
+      ))}
+    </>
+  );
+};
+
 const Player = ({ position }: { position: Triplet }) => {
   const { camera, raycaster, scene } = useThree();
-  const hits = useRef([false, false, false, false, false, false]);
-  const result = useWasd(playerPosition, hits);
+  const result = useWasd(playerPosition);
 
   const ref = useRef<Group>();
   const moveRayDebug = useRef() as any;
   useDebugRay(moveRayDebug, result);
+
+  useEffect(() => {
+    playerPosition.set(...position);
+  }, [position]);
 
   useFrame(() => {
     ref.current?.position.copy(playerPosition);
@@ -151,6 +199,7 @@ const Player = ({ position }: { position: Triplet }) => {
       <Cylinder args={[0.2, 0.2, 1]}>
         <meshStandardMaterial color="red" />
       </Cylinder>
+      <PlayerDebug result={result} />
       <Line
         ref={moveRayDebug}
         points={[
@@ -159,27 +208,6 @@ const Player = ({ position }: { position: Triplet }) => {
         ]}
         color="green"
         lineWidth={4}
-      />
-      <LocalRay direction={[0, 0, 0]} onUpdate={(v) => (hits.current[0] = v)} />
-      <LocalRay
-        direction={[0, Math.PI / 4, 0]}
-        onUpdate={(v) => (hits.current[1] = v)}
-      />
-      <LocalRay
-        direction={[0, Math.PI / 2, 0]}
-        onUpdate={(v) => (hits.current[2] = v)}
-      />
-      <LocalRay
-        direction={[0, -Math.PI / 4, 0]}
-        onUpdate={(v) => (hits.current[3] = v)}
-      />
-      <LocalRay
-        direction={[0, Math.PI, 0]}
-        onUpdate={(v) => (hits.current[4] = v)}
-      />
-      <LocalRay
-        direction={[0, (3 / 2) * Math.PI, 0]}
-        onUpdate={(v) => (hits.current[5] = v)}
       />
     </group>
   );
@@ -199,7 +227,7 @@ ReactDOM.render(
           <Obstacle position={[1, 0, 1]} />
           <Obstacle position={[3, 0, 3]} />
           <Obstacle position={[-3, 0, 3]} />
-          <Player position={[1, 0, 1]} />
+          <Player position={[0, 0, -1]} />
         </Physics>
       </Suspense>
       {/* <WasdControls /> */}

@@ -1,8 +1,15 @@
 import { useCamera } from "@react-three/drei";
-import { Camera, useThree } from "@react-three/fiber";
+import { Camera, useFrame, useThree } from "@react-three/fiber";
 import { useButtonHeld, keycode } from "use-control/lib";
 import KEYS from "use-control/lib/keys";
-import { Raycaster, Vector3 } from "three";
+import {
+  Euler,
+  Intersection,
+  Object3D,
+  Raycaster,
+  Vector2,
+  Vector3,
+} from "three";
 import { MutableRefObject, RefObject, useRef } from "react";
 import { obstacles } from "./obstacles";
 
@@ -58,13 +65,18 @@ const WasdControls = () => {
 
 export default WasdControls;
 
+export type RaycastResult = {
+  movement: Vector3;
+  hit: Intersection<Object3D>;
+};
+
 function tryMove(
   position: Vector3,
   camera: Camera,
   raycaster: Raycaster,
   speed: number,
   angle: number,
-  result: MutableRefObject<Vector3>
+  result: MutableRefObject<MovementResult>
 ) {
   camera.getWorldDirection(look);
   look.y = 0;
@@ -74,67 +86,103 @@ function tryMove(
   const dir = look.clone();
 
   const skin = 0.2;
+  const movement = dir.clone().multiplyScalar(speed);
 
   // NOTE(ben): I think we should cast a spread of rays in the direction of movement from 4-8 equal points around the cylinder
   // then we can find the closest intersection and base our movement off of that, which should prefer creeping into the wall
 
   // sharp geo can get in the gaps but cubes / rects shouldn't be a problem
 
-  const movement = look.multiplyScalar(speed);
-  const m = movement.clone().add(dir.multiplyScalar(skin));
-  raycaster.set(position, m);
-  raycaster.far = m.length();
+  const results = [];
+  const e = new Euler(0, 0, 0, "XYZ");
+  console.log("performing checks");
+  for (let a = -Math.PI / 2; a <= Math.PI / 2; a += Math.PI / 4) {
+    const m = movement.clone();
+    e.set(0, a, 0);
+    m.applyEuler(e);
+    m.add(dir.clone().applyAxisAngle(UP, a).multiplyScalar(skin)); // add radius
 
-  const intersections = raycaster
-    .intersectObjects(obstacles)
-    .sort((x) => -x.distance);
-  const isIntersecting = intersections.length > 0;
+    raycaster.set(position, m);
+    raycaster.far = m.length();
 
-  if (intersections.length > 1) {
-    // debugger;
+    const intersections = raycaster
+      .intersectObjects(obstacles)
+      .sort((x) => -x.distance);
+
+    results.push({ movement: m, hit: intersections[0] });
   }
+
+  const hits = results.filter((r) => r.hit !== undefined);
+  const isIntersecting = hits.length > 0;
 
   if (!isIntersecting) {
     position.add(movement);
-    result.current = movement;
+    result.current.netMovement = movement;
+    result.current.hits.length = 0;
   } else {
-    const n = intersections[0].face?.normal;
+    hits.sort((r) => r.hit.distance);
+    const n = hits[0].hit.face?.normal;
+
     if (n) {
-      if (intersections[0].distance < skin) {
-        const diff = skin - intersections[0].distance;
-        const correction = movement.multiplyScalar(-diff);
+      const m = hits[0].movement.clone();
+      if (hits[0].hit.distance < skin + 0.01) {
+        const diff = skin + 0.01 - hits[0].hit.distance;
+        const correction = m.multiplyScalar(-diff);
         position.add(correction);
       }
       // Should test both directions and see which is better
       // or maybe there's a better answer yet
-      const t = n.clone().applyAxisAngle(UP, Math.PI / 2);
-      const d = movement.normalize().dot(t);
+      const t1 = n.clone().applyAxisAngle(UP, Math.PI / 2);
+      const t2 = n.clone().applyAxisAngle(UP, -Math.PI / 2);
+      const d1 = m.normalize().dot(t1);
+      const d2 = m.normalize().dot(t2);
+      const t = d1 > d2 ? t2 : t1;
+      const d = d1 > d2 ? d2 : d1;
+      // const t = t1;
+      // const d = d1;
+
       const v = t.normalize().multiplyScalar(d * speed);
-      result.current = v;
+      result.current.netMovement = v;
       position.add(v);
     }
+    result.current.hits = results;
   }
 }
 
-export const useWasd = (pos: Vector3, hits: MutableRefObject<boolean[]>) => {
+export type MovementResult = {
+  netMovement: Vector3;
+  hits: RaycastResult[];
+};
+
+export const useWasd = (pos: Vector3) => {
   const { camera, gl, raycaster } = useThree();
   const speed = 0.01;
-  const result = useRef(new Vector3());
+  const result = useRef({ netMovement: new Vector3(), hits: [] });
+
+  const movement = useRef(new Vector2());
+
+  useFrame(() => {
+    const a = movement.current.angle();
+    if (movement.current.length() > 0) {
+      tryMove(pos, camera, raycaster, speed, a, result);
+      movement.current.x = movement.current.y = 0;
+    }
+  });
 
   useButtonHeld(inputMap, "left", 1, () => {
-    tryMove(pos, camera, raycaster, speed, Math.PI / 2, result);
+    movement.current.y = speed;
   });
 
   useButtonHeld(inputMap, "right", 1, () => {
-    tryMove(pos, camera, raycaster, speed, -Math.PI / 2, result);
+    movement.current.y = -speed;
   });
 
   useButtonHeld(inputMap, "forward", 1, () => {
-    tryMove(pos, camera, raycaster, speed, 0, result);
+    movement.current.x = speed;
   });
 
   useButtonHeld(inputMap, "back", 1, () => {
-    tryMove(pos, camera, raycaster, speed, Math.PI, result);
+    movement.current.x = -speed;
   });
 
   return result;
