@@ -13,7 +13,7 @@ import {
 import { MutableRefObject, RefObject, useRef } from "react";
 import { obstacles } from "./obstacles";
 
-const inputMap = {
+export const inputMap = {
   buttons: {
     left: [keycode(KEYS.a)],
     right: [keycode(KEYS.d)],

@@ -3,6 +3,12 @@ import { OrbitControls, Stats } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom";
+import {
+  Character,
+  Floor,
+  makePlayerAabb,
+  Obstacle,
+} from "./characterController";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
 
@@ -22,6 +28,17 @@ ReactDOM.render(
           <Obstacle position={[-3, 0, 3]} />
           <Player position={[0, 0, -1]} />
         </Physics> */}
+        <Floor />
+        <Obstacle position={[1, 0, 0]} />
+        <Obstacle position={[2, 0, 0]} />
+        <Obstacle position={[3, 0, 0]} />
+        <Obstacle position={[3, 1, 0]} />
+        <Obstacle position={[3, 2, 0]} />
+        <Obstacle position={[3, 0, 1]} />
+        <Obstacle position={[3, 1, 1]} />
+        <Obstacle position={[3, 2, 1]} />
+        <Obstacle position={[3, 0, 2]} />
+        <Character position={[1, 1, 0]} />
       </Suspense>
       {/* <WasdControls /> */}
       {/* <PointerLockControls
