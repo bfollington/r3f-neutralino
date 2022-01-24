@@ -35,6 +35,11 @@ export function translate(aabb: AABB, translation: Vector3): AABB {
   );
 }
 
+export function copy(from: AABB, to: AABB) {
+  to.max = from.max;
+  to.min = from.min;
+}
+
 export function scale(aabb: AABB, scale: Vector3): AABB {
   const dist = size(aabb);
   return make(aabb.min.clone(), dist.multiply(scale));

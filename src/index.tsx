@@ -39,6 +39,22 @@ ReactDOM.render(
         dispatchEvent={undefined}
       /> */}
     </Canvas>
+    <div
+      style={{
+        position: "absolute",
+        pointerEvents: "none",
+        textAlign: "center",
+        verticalAlign: "middle",
+        lineHeight: "100vh",
+        userSelect: "none",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      }}
+    >
+      +
+    </div>
   </React.StrictMode>,
   document.getElementById("root")
 );

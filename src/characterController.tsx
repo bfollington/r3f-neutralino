@@ -1,14 +1,15 @@
+import { Html } from "@react-three/drei";
 import { Camera, useFrame, useThree } from "@react-three/fiber";
 import { MutableRefObject, useEffect, useRef } from "react";
-import { Mesh, Vector3, Vector3Tuple } from "three";
-import { useButtonHeld } from "use-control/lib";
+import { Group, Mesh, Object3D, Vector2, Vector3, Vector3Tuple } from "three";
+import { useButtonHeld, useButtonPressed } from "use-control/lib";
 import * as aabb from "./aabb";
 import { AABB } from "./aabb";
 import { inputMap } from "./WasdControls";
 
 export function makePlayerAabb(position: Vector3Tuple) {
   let b = aabb.unit();
-  b = aabb.scale(b, new Vector3(0.25, 1.8, 0.25));
+  b = aabb.scale(b, new Vector3(0.5, 1.8, 0.5));
   b = aabb.translate(b, new Vector3(0, position[1], 0)); // should be transforming by player Y position
   b = aabb.centerOn(b, new Vector3(...position), new Vector3(1, 0, 1));
 
@@ -78,11 +79,17 @@ function useAABB(min: Vector3, max: Vector3) {
   return useRef(aabb.make(min, max));
 }
 
-export const obstacles: MutableRefObject<AABB>[] = [];
+export const obstacles: {
+  aabb: MutableRefObject<AABB>;
+  obj: MutableRefObject<Object3D | undefined>;
+}[] = [];
 
-export const useObstacle = (ref: MutableRefObject<AABB>) => {
+export const useObstacle = (
+  aabbRef: MutableRefObject<AABB>,
+  objRef: MutableRefObject<Object3D | undefined>
+) => {
   useEffect(() => {
-    const o = ref;
+    const o = { aabb: aabbRef, obj: objRef };
     obstacles.push(o);
 
     return () => {
@@ -104,17 +111,16 @@ const DebugBox = ({ box }: { box: MutableRefObject<AABB> }) => {
   return (
     <mesh ref={mesh}>
       <boxBufferGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial wireframe />
+      <meshStandardMaterial wireframe color="green" />
     </mesh>
   );
 };
 
 export const Obstacle = ({ position }: { position: Vector3Tuple }) => {
   const collider = useRef(aabb.centerOn(aabb.unit(), new Vector3(...position)));
-
-  useObstacle(collider);
-
   const mesh = useRef<Mesh>();
+
+  useObstacle(collider, mesh);
 
   return (
     <>
@@ -131,10 +137,9 @@ export const Floor = () => {
   const collider = useRef(
     aabb.make(new Vector3(-10, -0.1, -10), new Vector3(10, 0, 10))
   );
-
-  useObstacle(collider);
-
   const mesh = useRef<Mesh>();
+
+  useObstacle(collider, mesh);
 
   return (
     <>
@@ -202,20 +207,91 @@ export const useWasd = (speed: number, camera?: Camera) => {
   return movement;
 };
 
+const useBoxcastPicker = () => {
+  const { camera, raycaster } = useThree();
+  const collider = useAABB(new Vector3(0, 0, 0), new Vector3(0.01, 0.01, 0.01));
+  const pos = useRef(new Vector3());
+  const look = useRef(new Vector3());
+  const tip = useRef(new Vector3());
+  const distance = 4;
+
+  useFrame(() => {
+    raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+
+    // camera.getWorldDirection(look.current);
+    look.current = raycaster.ray.direction.clone().normalize();
+    camera.getWorldPosition(pos.current);
+    pos.current.copy(raycaster.ray.origin);
+
+    aabb.copy(aabb.centerOn(collider.current, pos.current), collider.current);
+
+    const end = look.current.clone().multiplyScalar(distance);
+    const obs = obstacles.map((o) => o.aabb.current);
+    const steps = 32;
+    const stepDistance = end.clone().multiplyScalar(1 / steps);
+    for (let i = 0; i <= steps; i++) {
+      const res = move(collider.current, stepDistance, obs);
+
+      if (res.length() >= stepDistance.length()) {
+        const out = aabb.translate(collider.current, res);
+        aabb.copy(out, collider.current);
+        tip.current.copy(aabb.center(collider.current));
+      } else {
+        tip.current.copy(aabb.center(collider.current));
+        break;
+      }
+    }
+  });
+
+  return [tip, collider] as [MutableRefObject<Vector3>, MutableRefObject<AABB>];
+};
+
+// Dumb approach, should cast a small box ourselves
+const useRaycastPicker = () => {
+  const { scene, raycaster, camera } = useThree();
+  const mouse = useRef(new Vector2());
+  const tip = useRef(new Vector3());
+
+  useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener("mousemove", handle);
+
+    return () => window.removeEventListener("mousemove", handle);
+  });
+
+  useFrame(() => {
+    raycaster.setFromCamera(mouse.current, camera);
+
+    const intersections = raycaster.intersectObjects(
+      obstacles.map((o) => o.obj.current as Object3D)
+    );
+    for (const intersection of intersections) {
+      tip.current.copy(intersection.point);
+    }
+  });
+
+  return tip;
+};
+
 export const FirstPersonCharacter = ({
   position,
 }: {
   position: Vector3Tuple;
 }) => {
-  const { camera } = useThree();
+  const { camera, raycaster } = useThree();
   const collider = useRef(makePlayerAabb(position));
   const movement = useWasd(0.1, camera);
   const speed = 0.05;
   const gravity = 0.05;
+  const [raycastTip, raycastCollider] = useBoxcastPicker();
 
   useFrame(() => {
     // if (movement.current.length() > 0) {
     // obstacles.map perf is bad
+
     const res = move(
       collider.current,
       new Vector3(
@@ -223,15 +299,13 @@ export const FirstPersonCharacter = ({
         -0.05,
         movement.current.z * speed
       ),
-      obstacles.map((o) => o.current)
+      obstacles.map((o) => o.aabb.current)
     );
 
     // console.log(res);
 
     const out = aabb.translate(collider.current, res);
-    collider.current.min = out.min;
-    collider.current.max = out.max;
-    console.log(movement.current);
+    aabb.copy(out, collider.current);
     movement.current.x = movement.current.y = movement.current.z = 0;
     // }
 
@@ -241,10 +315,21 @@ export const FirstPersonCharacter = ({
     if (mesh.current) {
       mesh.current.position.copy(newPos);
     }
+
+    if (picker.current && raycastTip.current) {
+      // console.log(raycastTip.current);
+      picker.current.position.copy(raycastTip.current);
+    }
+  });
+
+  useButtonPressed(inputMap, "place", () => {
+    sign.current?.position.copy(raycastTip.current);
   });
 
   const s = aabb.size(collider.current);
   const mesh = useRef<Mesh>();
+  const picker = useRef<Mesh>();
+  const sign = useRef<Group>();
 
   return (
     <>
@@ -252,7 +337,24 @@ export const FirstPersonCharacter = ({
         <boxBufferGeometry args={[s.x, s.y, s.z]} />
         <meshNormalMaterial />
       </mesh>
-      {/* <DebugBox box={collider} /> */}
+      <mesh ref={picker} scale={0.01}>
+        <sphereGeometry />
+        <meshStandardMaterial color="red" />
+      </mesh>
+      <group ref={sign} position={[0, 0, 0]}>
+        <Html
+          style={{
+            fontSize: "64px",
+            width: "380px",
+            textAlign: "center",
+            userSelect: "none",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <span style={{ width: "128px" }}>LOOK HERE</span>
+        </Html>
+      </group>
+      <DebugBox box={raycastCollider} />
     </>
   );
 };

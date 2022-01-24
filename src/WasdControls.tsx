@@ -8,7 +8,7 @@ import {
   Vector2,
   Vector3,
 } from "three";
-import { keycode, useButtonHeld } from "use-control/lib";
+import { keycode, mouseButton, useButtonHeld } from "use-control/lib";
 import KEYS from "use-control/lib/keys";
 import { obstacles } from "./obstacles";
 
@@ -19,6 +19,7 @@ export const inputMap = {
     forward: [keycode(KEYS.w)],
     back: [keycode(KEYS.s)],
     jump: [keycode(KEYS.space)],
+    place: [mouseButton("left")],
   },
   axes: {},
 };
