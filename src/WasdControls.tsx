@@ -1,7 +1,5 @@
-import { useCamera } from "@react-three/drei";
 import { Camera, useFrame, useThree } from "@react-three/fiber";
-import { useButtonHeld, keycode } from "use-control/lib";
-import KEYS from "use-control/lib/keys";
+import { MutableRefObject, useRef } from "react";
 import {
   Euler,
   Intersection,
@@ -10,7 +8,8 @@ import {
   Vector2,
   Vector3,
 } from "three";
-import { MutableRefObject, RefObject, useRef } from "react";
+import { keycode, useButtonHeld } from "use-control/lib";
+import KEYS from "use-control/lib/keys";
 import { obstacles } from "./obstacles";
 
 export const inputMap = {

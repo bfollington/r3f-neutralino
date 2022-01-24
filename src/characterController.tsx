@@ -1,6 +1,6 @@
-import { useFrame, useThree } from "@react-three/fiber";
-import { MutableRefObject, useEffect, useMemo, useRef } from "react";
-import { Mesh, Vector2, Vector3, Vector3Tuple } from "three";
+import { Camera, useFrame, useThree } from "@react-three/fiber";
+import { MutableRefObject, useEffect, useRef } from "react";
+import { Mesh, Vector3, Vector3Tuple } from "three";
 import { useButtonHeld } from "use-control/lib";
 import * as aabb from "./aabb";
 import { AABB } from "./aabb";
@@ -17,6 +17,7 @@ export function makePlayerAabb(position: Vector3Tuple) {
 
 const BABY_EPSILON = 0.0001;
 const EPSILON = 0.005;
+const UP = new Vector3(0, 1, 0);
 
 export function moveAxis(
   box: AABB,
@@ -146,33 +147,69 @@ export const Floor = () => {
   );
 };
 
-export const useWasd = () => {
-  const movement = useRef(new Vector2());
-
-  useFrame(() => {});
+export const useWasd = (speed: number, camera?: Camera) => {
+  const movement = useRef(new Vector3());
+  const look = useRef(new Vector3());
 
   useButtonHeld(inputMap, "left", 1, () => {
-    movement.current.x = -1;
+    if (camera) {
+      camera.getWorldDirection(look.current);
+      look.current.y = 0;
+      look.current.applyAxisAngle(UP, Math.PI / 2);
+
+      movement.current.add(look.current.multiplyScalar(speed));
+    } else {
+      movement.current.x = -1;
+    }
   });
 
   useButtonHeld(inputMap, "right", 1, () => {
-    movement.current.x = 1;
+    if (camera) {
+      camera.getWorldDirection(look.current);
+      look.current.y = 0;
+      look.current.applyAxisAngle(UP, -Math.PI / 2);
+
+      movement.current.add(look.current.multiplyScalar(speed));
+    } else {
+      movement.current.x = 1;
+    }
   });
 
   useButtonHeld(inputMap, "forward", 1, () => {
-    movement.current.y = -1;
+    if (camera) {
+      camera.getWorldDirection(look.current);
+      look.current.y = 0;
+      look.current.applyAxisAngle(UP, 0);
+
+      movement.current.add(look.current.multiplyScalar(speed));
+    } else {
+      movement.current.z = -1;
+    }
   });
 
   useButtonHeld(inputMap, "back", 1, () => {
-    movement.current.y = 1;
+    if (camera) {
+      camera.getWorldDirection(look.current);
+      look.current.y = 0;
+      look.current.applyAxisAngle(UP, Math.PI);
+
+      movement.current.add(look.current.multiplyScalar(speed));
+    } else {
+      movement.current.z = 1;
+    }
   });
 
   return movement;
 };
 
-export const Character = ({ position }: { position: Vector3Tuple }) => {
+export const FirstPersonCharacter = ({
+  position,
+}: {
+  position: Vector3Tuple;
+}) => {
+  const { camera } = useThree();
   const collider = useRef(makePlayerAabb(position));
-  const movement = useWasd();
+  const movement = useWasd(0.1, camera);
   const speed = 0.05;
   const gravity = 0.05;
 
@@ -184,7 +221,7 @@ export const Character = ({ position }: { position: Vector3Tuple }) => {
       new Vector3(
         movement.current.x * speed,
         -0.05,
-        movement.current.y * speed
+        movement.current.z * speed
       ),
       obstacles.map((o) => o.current)
     );
@@ -194,11 +231,15 @@ export const Character = ({ position }: { position: Vector3Tuple }) => {
     const out = aabb.translate(collider.current, res);
     collider.current.min = out.min;
     collider.current.max = out.max;
-    movement.current.x = movement.current.y = 0;
+    console.log(movement.current);
+    movement.current.x = movement.current.y = movement.current.z = 0;
     // }
 
+    const newPos = aabb.center(collider.current);
+    camera.position.copy(newPos);
+
     if (mesh.current) {
-      mesh.current.position.copy(aabb.center(collider.current));
+      mesh.current.position.copy(newPos);
     }
   });
 
@@ -211,7 +252,7 @@ export const Character = ({ position }: { position: Vector3Tuple }) => {
         <boxBufferGeometry args={[s.x, s.y, s.z]} />
         <meshNormalMaterial />
       </mesh>
-      <DebugBox box={collider} />
+      {/* <DebugBox box={collider} /> */}
     </>
   );
 };
